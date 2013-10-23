@@ -22,7 +22,7 @@ describe('Environment', function () {
       assert.ok(env instanceof events.EventEmitter);
     });
 
-    it('adds new filepath to the loadpahts using appendLookup / prependLookup', function () {
+    it('adds new filepath to the loadpaths using appendLookup / prependLookup', function () {
       var env = generators();
       assert.ok(env.lookups.length);
 
@@ -30,11 +30,6 @@ describe('Environment', function () {
 
       env.appendLookup('support/scaffold');
       assert.ok(env.lookups.slice(-1)[0], 'support/scaffold');
-    });
-
-    // generators is an instance of event emitter.
-    it('generators() is an instance of EventEmitter', function () {
-      assert.ok(generators() instanceof events.EventEmitter, 'Not an instance of EventEmitter');
     });
 
     it('generators.Base is the Base generator class', function () {
@@ -59,32 +54,6 @@ describe('Environment', function () {
       assert.deepEqual(env.options, {});
     });
 
-    it('registers generators using the .register() method', function () {
-      var env = generators();
-      assert.equal(Object.keys(env.generators).length, 0);
-
-      env
-        .register('../fixtures/custom-generator-simple', 'fixtures:custom-generator-simple')
-        .register('../fixtures/custom-generator-extend', 'scaffold');
-
-      assert.equal(Object.keys(env.generators).length, 2);
-
-      var simple = env.generators['fixtures:custom-generator-simple'];
-      assert.ok(simple);
-      assert.ok(typeof simple === 'function');
-      assert.ok(simple.namespace, 'fixtures:custom-generator-simple');
-
-      var extend = env.generators.scaffold;
-      assert.ok(extend);
-      assert.ok(typeof extend === 'function');
-      assert.ok(extend.namespace, 'scaffold');
-
-      // should only accept String as first parameter
-      assert.throws(function () { env.register(function () {}, 'blop'); });
-      assert.throws(function () { env.register([], 'blop'); });
-      assert.throws(function () { env.register(false, 'blop'); });
-    });
-
     // Make sure we don't break the generators hash using `Object.defineProperty`
     it('should keep internal generators object writable', function () {
       var env = generators();
@@ -93,16 +62,6 @@ describe('Environment', function () {
       assert.equal(env.generators.foo, 'bar');
       env.generators.foo = 'yo';
       assert.equal(env.generators.foo, 'yo');
-    });
-
-    it('get the list of namespaces', function () {
-      var namespaces = generators()
-        .register('../fixtures/custom-generator-simple')
-        .register('../fixtures/custom-generator-extend')
-        .register('../fixtures/custom-generator-extend', 'support:scaffold')
-        .namespaces();
-
-      assert.deepEqual(namespaces, ['simple', 'extend:support:scaffold', 'support:scaffold']);
     });
 
     it('output the general help', function () {
@@ -117,29 +76,6 @@ describe('Environment', function () {
 
       // custom bin name
       helpers.assertTextEqual(env.help('gg').trim(), expected.replace('Usage: init', 'Usage: gg').trim());
-    });
-
-    describe('#get', function () {
-      beforeEach(function () {
-        this.generator = require('./fixtures/mocha-generator');
-        this.env = generators()
-          .register('../fixtures/mocha-generator', 'fixtures:mocha-generator')
-          .register('../fixtures/mocha-generator', 'mocha:generator');
-      });
-
-      it('get a specific generator', function () {
-        assert.equal(this.env.get('mocha:generator'), this.generator);
-        assert.equal(this.env.get('fixtures:mocha-generator'), this.generator);
-      });
-
-      it('walks recursively the namespace to get the closest match', function () {
-        assert.equal(this.env.get('mocha:generator:too:many'), this.generator);
-      });
-
-      it('returns undefined if namespace is not found', function () {
-        assert.equal(this.env.get('not:there'), undefined);
-        assert.equal(this.env.get(), undefined);
-      });
     });
 
     it('create() can be used to get and instantiate a specific generator', function () {
@@ -169,6 +105,76 @@ describe('Environment', function () {
       var env = generators().register('../fixtures/mocha-generator', 'fixtures:mocha-generator');
       var mocha = env.create('fixtures:mocha-generator');
       mocha.run(done);
+    });
+  });
+
+  describe('#register', function () {
+    beforeEach(function () {
+      this.simplePath = '../fixtures/custom-generator-simple';
+      this.extendPath = '../fixtures/custom-generator-extend';
+      this.env = generators();
+      assert.equal(Object.keys(this.env.generators).length, 0, 'env should be empty');
+      this.env
+        .register(this.simplePath, 'fixtures:custom-generator-simple')
+        .register(this.extendPath, 'scaffold');
+    });
+
+    it('store registered generators', function () {
+      assert.equal(Object.keys(this.env.generators).length, 2);
+    });
+
+    it('determine registered Generator namespace and resolved path', function () {
+      var simple = this.env.get('fixtures:custom-generator-simple');
+      assert.ok(typeof simple === 'function');
+      assert.ok(simple.namespace, 'fixtures:custom-generator-simple');
+      assert.ok(simple.resolved, path.resolve(this.simplePath));
+
+      var extend = this.env.get('scaffold');
+      assert.ok(typeof extend === 'function');
+      assert.ok(extend.namespace, 'scaffold');
+      assert.ok(extend.resolved, path.resolve(this.extendPath));
+    });
+
+    it('throw when String is not passed as first parameter', function () {
+      assert.throws(function () { this.env.register(function () {}, 'blop'); });
+      assert.throws(function () { this.env.register([], 'blop'); });
+      assert.throws(function () { this.env.register(false, 'blop'); });
+    });
+  });
+
+  describe('#namespace', function () {
+    beforeEach(function () {
+      this.env = generators()
+        .register('../fixtures/custom-generator-simple')
+        .register('../fixtures/custom-generator-extend')
+        .register('../fixtures/custom-generator-extend', 'support:scaffold');
+    });
+
+    it('get the list of namespaces', function () {
+      assert.deepEqual(this.env.namespaces(), ['simple', 'extend:support:scaffold', 'support:scaffold']);
+    });
+  });
+
+  describe('#get', function () {
+    beforeEach(function () {
+      this.generator = require('./fixtures/mocha-generator');
+      this.env = generators()
+        .register('../fixtures/mocha-generator', 'fixtures:mocha-generator')
+        .register('../fixtures/mocha-generator', 'mocha:generator');
+    });
+
+    it('get a specific generator', function () {
+      assert.equal(this.env.get('mocha:generator'), this.generator);
+      assert.equal(this.env.get('fixtures:mocha-generator'), this.generator);
+    });
+
+    it('walks recursively the namespace to get the closest match', function () {
+      assert.equal(this.env.get('mocha:generator:too:many'), this.generator);
+    });
+
+    it('returns undefined if namespace is not found', function () {
+      assert.equal(this.env.get('not:there'), undefined);
+      assert.equal(this.env.get(), undefined);
     });
   });
 
