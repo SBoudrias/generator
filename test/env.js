@@ -174,7 +174,7 @@ describe('Environment', function () {
 
   describe('Engines', function () {
 
-    before (function () {
+    before(function () {
       this.generator = new Base([], {
         env: generators(),
         resolved: __filename
@@ -373,6 +373,25 @@ describe('Environment', function () {
 
     it('throws if invalid namespace', function () {
       assert.throws(this.env.registerStub.bind(this.env, this.simpleDummy), /namespace/);
+    });
+  });
+
+  describe('#error', function () {
+    beforeEach(function () {
+      this.env = generators();
+    });
+
+    it('delegate error handling to the listener', function (done) {
+      var error = new Error('foo bar');
+      this.env.on('error', function (err) {
+        assert.equal(error, err);
+        done();
+      });
+      this.env.error(error);
+    });
+
+    it('throws error if no listener is set', function () {
+      assert.throws(this.env.error.bind(this.env, new Error()));
     });
   });
 });
