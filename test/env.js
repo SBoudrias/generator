@@ -1,8 +1,9 @@
-/*global it, describe, before */
+/*global it, describe, before, beforeEach */
 var fs = require('fs');
 var path = require('path');
 var util = require('util');
 var assert = require('assert');
+var sinon = require('sinon');
 var generators = require('..');
 var helpers = generators.test;
 var events = require('events');
@@ -118,14 +119,27 @@ describe('Environment', function () {
       helpers.assertTextEqual(env.help('gg').trim(), expected.replace('Usage: init', 'Usage: gg').trim());
     });
 
-    it('get() can be used to get a specific generator', function () {
-      var env = generators()
-        .register('../fixtures/mocha-generator', 'fixtures:mocha-generator')
-        .register('../fixtures/mocha-generator', 'mocha:generator');
+    describe('#get', function () {
+      beforeEach(function () {
+        this.generator = require('./fixtures/mocha-generator');
+        this.env = generators()
+          .register('../fixtures/mocha-generator', 'fixtures:mocha-generator')
+          .register('../fixtures/mocha-generator', 'mocha:generator');
+      });
 
-      var expected = require('./fixtures/mocha-generator');
-      assert.equal(env.get('mocha:generator'), expected);
-      assert.equal(env.get('fixtures:mocha-generator'), expected);
+      it('get a specific generator', function () {
+        assert.equal(this.env.get('mocha:generator'), this.generator);
+        assert.equal(this.env.get('fixtures:mocha-generator'), this.generator);
+      });
+
+      it('walks recursively the namespace to get the closest match', function () {
+        assert.equal(this.env.get('mocha:generator:too:many'), this.generator);
+      });
+
+      it('returns undefined if namespace is not found', function () {
+        assert.equal(this.env.get('not:there'), undefined);
+        assert.equal(this.env.get(), undefined);
+      });
     });
 
     it('create() can be used to get and instantiate a specific generator', function () {
@@ -321,7 +335,7 @@ describe('Environment', function () {
       });
     });
 
-    it('has the whole Underscore String API available as prorotype mehtod', function () {
+    it('has the whole Underscore String API available as prototype method', function () {
       var str = require('underscore.string').exports();
 
       Object.keys(str).forEach(function (prop) {
@@ -330,6 +344,35 @@ describe('Environment', function () {
         }
         assert.equal(typeof this.dummy._[prop], 'function');
       }, this);
+    });
+  });
+
+  describe('#registerStub', function () {
+    beforeEach(function () {
+      this.simpleDummy = sinon.spy();
+      this.completeDummy = function () {};
+      util.inherits(this.completeDummy, Base);
+      this.env = generators()
+        .registerStub(this.simpleDummy, 'dummy:simple')
+        .registerStub(this.completeDummy, 'dummy:complete');
+    });
+
+    it('register a function under a namespace', function () {
+      assert.equal(this.completeDummy, this.env.get('dummy:complete'));
+    });
+
+    it('extend simple function with Base', function () {
+      assert.ok(this.env.get('dummy:simple').super_ === Base);
+      this.env.run('dummy:simple');
+      assert.ok(this.simpleDummy.calledOnce);
+    });
+
+    it('throws if invalid generator', function () {
+      assert.throws(this.env.registerStub.bind(this.env, [], 'dummy'), /stub\sfunction/);
+    });
+
+    it('throws if invalid namespace', function () {
+      assert.throws(this.env.registerStub.bind(this.env, this.simpleDummy), /namespace/);
     });
   });
 });
