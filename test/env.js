@@ -51,19 +51,27 @@ describe('Environment', function () {
       assert.deepEqual(env.arguments, ['model', 'Post']);
       assert.deepEqual(env.options, {});
     });
+  });
 
-    it('output the general help', function () {
-      var env = generators()
+  describe('#help', function () {
+    beforeEach(function () {
+      this.env
         .register('../fixtures/custom-generator-simple')
         .register('../fixtures/custom-generator-extend');
 
-      var expected = fs.readFileSync(path.join(__dirname, 'fixtures/help.txt'), 'utf8');
+      this.expected = fs.readFileSync(path.join(__dirname, 'fixtures/help.txt'), 'utf8').trim();
+
       // lazy "update the help fixtures because something changed" statement
       // fs.writeFileSync(path.join(__dirname, 'fixtures/help.txt'), env.help().trim());
-      helpers.assertTextEqual(env.help().trim(), expected.trim());
+    });
 
-      // custom bin name
-      helpers.assertTextEqual(env.help('gg').trim(), expected.replace('Usage: init', 'Usage: gg').trim());
+    it('output the general help', function () {
+      helpers.assertTextEqual(this.env.help().trim(), this.expected);
+    });
+
+    it('output the help with a custom bin name', function () {
+      this.expected = this.expected.replace('Usage: init', 'Usage: gg');
+      helpers.assertTextEqual(this.env.help('gg').trim(), this.expected);
     });
   });
 
