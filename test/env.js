@@ -11,45 +11,35 @@ var events = require('events');
 var Base = generators.Base;
 var Environment = require('../lib/env');
 
-// https://gist.github.com/87550fd10b7440a37df4
 describe('Environment', function () {
   before(generators.test.before(path.join(__dirname, 'temp')));
 
   beforeEach(function () {
-    this.env = generators();
+    this.env = new Environment();
   });
 
-  afterEach(function() {
+  afterEach(function () {
     this.env.removeAllListeners();
   });
 
-  describe('Environment', function () {
-    it('to init the system, you need to create a new handler', function () {
-      var env = generators();
-      assert.ok(env instanceof Environment);
-      assert.ok(env instanceof events.EventEmitter);
+  it('is an instance of EventEmitter', function () {
+    assert.ok(new Environment() instanceof events.EventEmitter);
+  });
+
+  describe('constructor', function () {
+    it('take arguments option', function () {
+      var args = ['foo'];
+      assert.equal(new Environment(args).arguments, args);
     });
 
-    it('generators.Base is the Base generator class', function () {
-      assert.equal(generators.Base.prototype.__proto__.constructor, events.EventEmitter, 'Not an EventEmitter');
+    it('take arguments parameter option as string', function () {
+      var args = 'foo bar';
+      assert.deepEqual(new Environment(args).arguments, args.split(' '));
     });
 
-    it('generators.NamedBase is inheriting from Base generator class', function () {
-      assert.equal(generators.NamedBase.prototype.__proto__.constructor, generators.Base, 'Not a Base class');
-    });
-
-    it('init the system using your own args / options', function () {
-      // using a list of space-separated arguments as String
-      var env = generators('model Post', { help: true });
-      assert.deepEqual(env.arguments, ['model', 'Post']);
-      assert.deepEqual(env.options, {
-        help: true
-      });
-
-      // using a list of arguments as Array
-      env = generators(['model', 'Post']);
-      assert.deepEqual(env.arguments, ['model', 'Post']);
-      assert.deepEqual(env.options, {});
+    it('take options parameter', function () {
+      var opts = { foo : 'bar' };
+      assert.equal(new Environment(null, opts).options, opts);
     });
   });
 
@@ -381,6 +371,56 @@ describe('Environment', function () {
 
   });
 
+  describe('#registerStub', function () {
+    beforeEach(function () {
+      this.simpleDummy = sinon.spy();
+      this.completeDummy = function () {};
+      util.inherits(this.completeDummy, Base);
+      this.env
+        .registerStub(this.simpleDummy, 'dummy:simple')
+        .registerStub(this.completeDummy, 'dummy:complete');
+    });
+
+    it('register a function under a namespace', function () {
+      assert.equal(this.completeDummy, this.env.get('dummy:complete'));
+    });
+
+    it('extend simple function with Base', function () {
+      assert.ok(this.env.get('dummy:simple').super_ === Base);
+      this.env.run('dummy:simple');
+      assert.ok(this.simpleDummy.calledOnce);
+    });
+
+    it('throws if invalid generator', function () {
+      assert.throws(this.env.registerStub.bind(this.env, [], 'dummy'), /stub\sfunction/);
+    });
+
+    it('throws if invalid namespace', function () {
+      assert.throws(this.env.registerStub.bind(this.env, this.simpleDummy), /namespace/);
+    });
+  });
+
+  describe('#error', function () {
+    it('delegate error handling to the listener', function (done) {
+      var error = new Error('foo bar');
+      this.env.on('error', function (err) {
+        assert.equal(error, err);
+        done();
+      });
+      this.env.error(error);
+    });
+
+    it('throws error if no listener is set', function () {
+      assert.throws(this.env.error.bind(this.env, new Error()));
+    });
+
+    it('returns the error', function () {
+      var error = new Error('foo bar');
+      this.env.on('error', function () {});
+      assert.equal(this.env.error(error), error);
+    });
+  });
+
   // Events
   // ------
 
@@ -477,87 +517,6 @@ describe('Environment', function () {
 
         // actual run
         .run('angular:all myapp');
-    });
-  });
-
-  // Underscore String
-
-  // > http://epeli.github.com/underscore.string/
-  // > https://github.com/epeli/underscore.string#string-functions
-  //
-  // Underscore String set of utilities are very handy, especially in the
-  // context of Generators. We often want to humanize, dasherize or underscore
-  // a given variable.
-  //
-  // Since templates are invoked in the context of the Generator that render
-  // them, all these String helpers are then available directly from templates.
-  describe('Underscore String', function () {
-    before(function () {
-      this.dummy = new generators.Base([], {
-        env: generators(),
-        resolved: __filename
-      });
-    });
-
-    it('has the whole Underscore String API available as prototype method', function () {
-      var str = require('underscore.string').exports();
-
-      Object.keys(str).forEach(function (prop) {
-        if (typeof str[prop] !== 'function') {
-          return;
-        }
-        assert.equal(typeof this.dummy._[prop], 'function');
-      }, this);
-    });
-  });
-
-  describe('#registerStub', function () {
-    beforeEach(function () {
-      this.simpleDummy = sinon.spy();
-      this.completeDummy = function () {};
-      util.inherits(this.completeDummy, Base);
-      this.env
-        .registerStub(this.simpleDummy, 'dummy:simple')
-        .registerStub(this.completeDummy, 'dummy:complete');
-    });
-
-    it('register a function under a namespace', function () {
-      assert.equal(this.completeDummy, this.env.get('dummy:complete'));
-    });
-
-    it('extend simple function with Base', function () {
-      assert.ok(this.env.get('dummy:simple').super_ === Base);
-      this.env.run('dummy:simple');
-      assert.ok(this.simpleDummy.calledOnce);
-    });
-
-    it('throws if invalid generator', function () {
-      assert.throws(this.env.registerStub.bind(this.env, [], 'dummy'), /stub\sfunction/);
-    });
-
-    it('throws if invalid namespace', function () {
-      assert.throws(this.env.registerStub.bind(this.env, this.simpleDummy), /namespace/);
-    });
-  });
-
-  describe('#error', function () {
-    it('delegate error handling to the listener', function (done) {
-      var error = new Error('foo bar');
-      this.env.on('error', function (err) {
-        assert.equal(error, err);
-        done();
-      });
-      this.env.error(error);
-    });
-
-    it('throws error if no listener is set', function () {
-      assert.throws(this.env.error.bind(this.env, new Error()));
-    });
-
-    it('returns the error', function () {
-      var error = new Error('foo bar');
-      this.env.on('error', function () {});
-      assert.equal(this.env.error(error), error);
     });
   });
 });
