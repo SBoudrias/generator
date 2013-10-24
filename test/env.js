@@ -65,28 +65,79 @@ describe('Environment', function () {
       // custom bin name
       helpers.assertTextEqual(env.help('gg').trim(), expected.replace('Usage: init', 'Usage: gg').trim());
     });
+  });
 
-    it('create() can be used to get and instantiate a specific generator', function () {
-      var env = generators().register('../fixtures/mocha-generator', 'mocha:generator');
-
-      var mocha = env.create('mocha:generator');
-      assert.deepEqual(mocha.arguments, []);
-
-      mocha = env.create('mocha:generator', {
-        arguments: ['another', 'set', 'of', 'arguments'],
-        options: {
-          'assertion-framework': 'chai'
-        }
-      });
-
-      assert.deepEqual(mocha.arguments, ['another', 'set', 'of', 'arguments']);
-      assert.equal(mocha.options['assertion-framework'], 'chai');
+  describe('#create', function () {
+    beforeEach(function () {
+      this.Generator = helpers.createDummyGenerator();
+      this.env.registerStub(this.Generator, 'stub');
+      this.env.registerStub(this.Generator, 'stub:foo:bar');
     });
 
-    it('invokes using the run() method, from specific generator', function (done) {
-      var env = generators().register('../fixtures/mocha-generator', 'fixtures:mocha-generator');
-      var mocha = env.create('fixtures:mocha-generator');
-      mocha.run(done);
+    it('instantiate a generator', function () {
+      assert.ok(this.env.create('stub') instanceof this.Generator);
+    });
+
+    it('pass options.arguments', function () {
+      var args = ['foo', 'bar'];
+      var generator = this.env.create('stub', { arguments: args });
+      assert.equal(generator.arguments, args);
+    });
+
+    it('pass options.arguments as string', function () {
+      var args = 'foo bar';
+      var generator = this.env.create('stub', { arguments: args });
+      assert.deepEqual(generator.arguments, args.split(' '));
+    });
+
+    it('pass options.args (as `arguments` alias)', function () {
+      var args = ['foo', 'bar'];
+      var generator = this.env.create('stub', { args: args });
+      assert.equal(generator.arguments, args);
+    });
+
+    it('prefer options.arguments over options.args', function () {
+      var arguments = ['yo', 'unicorn'];
+      var args = ['foo', 'bar'];
+      var generator = this.env.create('stub', { arguments: arguments, args: args });
+      assert.equal(generator.arguments, arguments);
+      assert.notEqual(generator.arguments, args);
+    });
+
+    it('default arguments to `env.arguments`', function () {
+      var args = ['foo', 'bar'];
+      this.env.arguments = args;
+      var generator = this.env.create('stub');
+      assert.notEqual(generator.arguments, args, 'not passed by reference');
+      assert.deepEqual(generator.arguments, args);
+    });
+
+    it('pass options.options', function () {
+      var opts = { 'foo' : 'bar' };
+      var generator = this.env.create('stub', { options: opts });
+      assert.equal(generator.options, opts);
+    });
+
+    it('default options to `env.options` content', function () {
+      this.env.options = { 'foo' : 'bar' };
+      assert.equal(this.env.create('stub').options.foo, 'bar');
+    });
+
+    it('throws if Generator is not registered', function () {
+      assert.throws(this.env.create.bind(this.end, 'i:do:not:exist'));
+    });
+
+    it('add a name property on the options', function () {
+      assert.equal(this.env.create('stub').options.name, 'stub');
+      assert.equal(this.env.create('stub:foo:bar').options.name, 'bar');
+    });
+
+    it('add the env as property on the options', function () {
+      assert.equal(this.env.create('stub').options.env, this.env);
+    });
+
+    it('add the Generator resolved path on the options', function() {
+      assert.equal(this.env.create('stub').options.resolved, this.env.get('stub').resolved);
     });
   });
 
