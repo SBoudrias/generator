@@ -7,6 +7,7 @@ var jshint = require('gulp-jshint');
 var jscs = require('gulp-jscs');
 var istanbul = require('gulp-istanbul');
 var coveralls = require('gulp-coveralls');
+var validateJsDoc = require('gulp-validate-jsdoc');
 
 gulp.task('static', function () {
   return gulp.src([
@@ -44,4 +45,18 @@ gulp.task('coveralls', ['test'], function () {
   return gulp.src('coverage/lcov.info').pipe(coveralls());
 });
 
-gulp.task('default', ['static', 'test', 'coveralls']);
+gulp.task('api-doc', function () {
+  return gulp.src('lib/**/*.js').pipe(validateJsDoc())
+    .on('data', function (file) {
+      console.log(file.path);
+    })
+    .on('error', function (err) {
+      if (err instanceof Error) {
+        console.log(err.message);
+      } else {
+        throw err;
+      }
+    });
+});
+
+gulp.task('default', ['static', 'test', 'api-doc', 'coveralls']);

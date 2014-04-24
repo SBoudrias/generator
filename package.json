@@ -60,6 +60,7 @@
     "gulp-jscs": "^0.4.1",
     "gulp-jshint": "^1.5.3",
     "gulp-mocha": "^0.4.1",
+    "gulp-validate-jsdoc": "^0.1.0",
     "jshint-stylish": "^0.1.4",
     "mockery": "^1.4.0",
     "proxyquire": "^0.6.0",
