@@ -24,4 +24,24 @@ describe('layers', function() {
       done();
     });
   });
+
+  it('runs async fs layers', function(done) {
+    var barging = false;
+    var firstLayer = layer(function(props) {
+      var asyncDone = this.async();
+      setTimeout(function() {
+        assert(!barging, 'The second layer barged!');
+        barging = true;
+        asyncDone();
+      }, 0);
+    });
+    var secondLayer = layer(function(props) {
+      barging = true;
+    });
+    firstLayer(this.env, this.props);
+    secondLayer(this.env, this.props);
+    this.env.runLoop.once('end', () => {
+      done();
+    });
+  });
 });
